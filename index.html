@@ -3,163 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3 钱包地址验证器</title>
+    <title>Web3 钱包地址验证器 (加强版)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-sub: #94a3b8;
-            --primary: #3b82f6;
-            --success: #22c55e;
-            --error: #ef4444;
-            --border: #334155;
-        }
-
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
-        .container {
-            background-color: var(--card-bg);
-            padding: 2rem;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            width: 100%;
-            max-width: 480px;
-            text-align: center;
-            border: 1px solid var(--border);
-        }
-
-        h2 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-
-        p.subtitle {
-            color: var(--text-sub);
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
-        }
-
-        .input-group {
-            position: relative;
-            margin-bottom: 1.5rem;
-        }
-
-        input {
-            width: 100%;
-            padding: 14px 16px;
-            background-color: #0f172a;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-            box-sizing: border-box;
-            transition: border-color 0.3s;
-            font-family: monospace; /* 让地址看起来更清晰 */
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background-color: #2563eb;
-        }
-
-        /* 结果显示区域 */
-        #result {
-            margin-top: 1.5rem;
-            padding: 1rem;
-            border-radius: 8px;
-            display: none; /* 默认隐藏 */
-            font-size: 0.95rem;
-            text-align: left;
-        }
-
-        .result-valid {
-            background-color: rgba(34, 197, 94, 0.1);
-            border: 1px solid var(--success);
-            color: var(--success);
-        }
-
-        .result-invalid {
-            background-color: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--error);
-            color: var(--error);
-        }
-
-        .chain-tag {
-            display: inline-block;
-            padding: 2px 8px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-            font-size: 0.8rem;
-            margin-left: 8px;
-            color: var(--text-main);
-        }
-
-        .features {
-            margin-top: 2rem;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            font-size: 0.8rem;
-            color: var(--text-sub);
-        }
+        /* 样式保持不变，复用之前的优美设计 */
+        :root { --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc; --text-sub: #94a3b8; --primary: #8b5cf6; /* 换个紫色代表 Tron */ --success: #22c55e; --error: #ef4444; --border: #334155; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background-color: var(--card-bg); padding: 2rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); width: 100%; max-width: 480px; text-align: center; border: 1px solid var(--border); }
+        h2 { margin-top: 0; margin-bottom: 0.5rem; font-weight: 600; }
+        p.subtitle { color: var(--text-sub); font-size: 0.9rem; margin-bottom: 2rem; }
+        .input-group { position: relative; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 14px 16px; background-color: #0f172a; border: 2px solid var(--border); border-radius: 8px; color: white; font-size: 1rem; box-sizing: border-box; transition: border-color 0.3s; font-family: monospace; }
+        input:focus { outline: none; border-color: var(--primary); }
+        button { width: 100%; padding: 14px; background-color: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: #7c3aed; }
+        #result { margin-top: 1.5rem; padding: 1rem; border-radius: 8px; display: none; font-size: 0.95rem; text-align: left; word-break: break-all; }
+        .result-valid { background-color: rgba(34, 197, 94, 0.1); border: 1px solid var(--success); color: var(--success); }
+        .result-invalid { background-color: rgba(239, 68, 68, 0.1); border: 1px solid var(--error); color: var(--error); }
+        .chain-tag { display: inline-block; padding: 2px 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 4px; font-size: 0.8rem; margin-left: 8px; color: var(--text-main); vertical-align: middle; }
+        .tech-note { font-size: 0.75rem; display: block; margin-top: 5px; opacity: 0.8; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Web3 地址检测</h2>
-    <p class="subtitle">支持 EVM (ETH/BSC/Polygon), Solana, Bitcoin</p>
+    <h2>Web3 地址检测 (Pro)</h2>
+    <p class="subtitle">支持 EVM, Solana, Bitcoin, <strong>Tron (强校验)</strong></p>
 
     <div class="input-group">
-        <input type="text" id="addressInput" placeholder="输入钱包地址 (0x...)" autocomplete="off">
+        <input type="text" id="addressInput" placeholder="输入钱包地址 (0x..., T...)" autocomplete="off">
     </div>
 
     <button onclick="checkAddress()">验证地址</button>
 
     <div id="result"></div>
-
-    <div class="features">
-        <span>🔒 校验和验证</span>
-        <span>⚡ 本地计算</span>
-        <span>🌐 多链支持</span>
-    </div>
 </div>
 
 <script>
-    function checkAddress() {
+    // --- 工具函数：Base58 解码 ---
+    // 为了不依赖巨大的外部库，我们手写一个轻量级的 Base58 解码器
+    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    const ALPHABET_MAP = {};
+    for(let i = 0; i < ALPHABET.length; i++) ALPHABET_MAP[ALPHABET.charAt(i)] = i;
+
+    function base58Decode(string) {
+        if (string.length === 0) return new Uint8Array(0);
+        let i, j, bytes = [0];
+        for (i = 0; i < string.length; i++) {
+            const c = string[i];
+            if (!(c in ALPHABET_MAP)) return null; // 发现非法字符
+            for (j = 0; j < bytes.length; j++) bytes[j] *= 58;
+            bytes[0] += ALPHABET_MAP[c];
+            let carry = 0;
+            for (j = 0; j < bytes.length; ++j) {
+                bytes[j] += carry;
+                carry = bytes[j] >> 8;
+                bytes[j] &= 0xff;
+            }
+            while (carry) {
+                bytes.push(carry & 0xff);
+                carry >>= 8;
+            }
+        }
+        // 处理前导 '1' (代表字节 0x00)
+        for (i = 0; i < string.length && string[i] === '1'; i++) bytes.push(0);
+        return new Uint8Array(bytes.reverse());
+    }
+
+    // --- 核心校验逻辑 ---
+
+    async function checkAddress() {
         const input = document.getElementById('addressInput').value.trim();
         const resultDiv = document.getElementById('result');
         
-        // 重置 UI
         resultDiv.style.display = 'none';
         resultDiv.className = '';
         
@@ -168,61 +84,108 @@
             return;
         }
 
-        // 1. 检测 EVM 地址 (Ethereum, BSC, Polygon, Avalanche 等)
-        // 使用 ethers.js 的 isAddress 方法，它会同时检查格式和 Checksum (EIP-55)
+        // 1. EVM 地址 (使用 ethers.js 的强校验)
         if (ethers.isAddress(input)) {
-            showResult(true, "有效的 EVM 地址", "Ethereum / Layer2s");
+            showResult(true, "有效的 EVM 地址", "ETH / BSC / Polygon / Arb");
             return;
         }
 
-        // 2. 检测 Solana 地址 (Base58 编码，长度通常在 32-44 字符之间)
-        // 正则表达式检查
+        // 2. Tron (TRC20) 地址 - 强校验模式
+        if (input.startsWith('T')) {
+            const tronValid = await verifyTronAddress(input);
+            if (tronValid) {
+                showResult(true, "有效的 Tron 地址", "Tron (TRC20)", "通过 Checksum 双重哈希校验");
+                return;
+            } else {
+                // 如果是T开头但校验失败，提示具体错误
+                showResult(false, "无效的 Tron 地址 (校验和错误)", "可能是拼写错误");
+                return;
+            }
+        }
+
+        // 3. Solana 地址 (正则 + 长度)
         const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
         if (solanaRegex.test(input)) {
             showResult(true, "格式符合 Solana 地址", "Solana");
             return;
         }
 
-        // 3. 检测 Bitcoin 地址 (简单正则)
-        // 1开头: Legacy, 3开头: Nested SegWit, bc1开头: Native SegWit
+        // 4. Bitcoin 地址
         const btcRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,59}$/;
         if (btcRegex.test(input)) {
             showResult(true, "格式符合 Bitcoin 地址", "Bitcoin");
             return;
         }
 
-        // 4. Tron 地址 (T 开头, 34位)
-        const tronRegex = /^T[a-zA-Z0-9]{33}$/;
-        if (tronRegex.test(input)) {
-            showResult(true, "格式符合 Tron 地址", "Tron (TRC20)");
-            return;
-        }
-
-        // 如果都不匹配
-        showResult(false, "无效的地址格式，请检查拼写或网络类型。");
+        showResult(false, "无法识别的地址格式");
     }
 
-    function showResult(isValid, message, chain = "") {
+    // --- TRC20 专用校验函数 ---
+    // 逻辑：Base58解码 -> 检查前缀(0x41) -> 提取Payload -> 双SHA256哈希 -> 对比校验和
+    async function verifyTronAddress(address) {
+        try {
+            // 1. 尝试 Base58 解码
+            const decoded = base58Decode(address);
+            if (!decoded) return false;
+
+            // 2. 长度检查：Tron 地址解码后必须是 25 字节
+            // (1字节前缀 + 20字节公钥哈希 + 4字节校验位)
+            if (decoded.length !== 25) return false;
+
+            // 3. 前缀检查：Tron 主网地址必须以 0x41 (65) 开头
+            if (decoded[0] !== 0x41) return false;
+
+            // 4. 校验和计算
+            // 提取数据部分 (前21字节) 和 校验位 (后4字节)
+            const dataContent = decoded.slice(0, 21);
+            const originalChecksum = decoded.slice(21);
+
+            // 计算哈希：SHA256(SHA256(data))
+            // ethers.sha256 接收 hex 字符串或 Uint8Array
+            const firstHash = ethers.sha256(dataContent); 
+            // 注意：ethers.sha256 返回的是 "0x..." 字符串，我们需要再次对其哈希
+            // 这里要把 hex string 转回 bytes 才能做第二次哈希，或者直接传 hex string 给 ethers.sha256 也行
+            const secondHash = ethers.sha256(firstHash);
+
+            // 提取计算出的校验和 (前4字节)
+            // ethers.getBytes 可以把 hex string 转为 Uint8Array
+            const calculatedChecksumBytes = ethers.getBytes(secondHash).slice(0, 4);
+
+            // 5. 比对
+            if (calculatedChecksumBytes[0] === originalChecksum[0] &&
+                calculatedChecksumBytes[1] === originalChecksum[1] &&
+                calculatedChecksumBytes[2] === originalChecksum[2] &&
+                calculatedChecksumBytes[3] === originalChecksum[3]) {
+                return true;
+            }
+
+            return false;
+
+        } catch (e) {
+            console.error(e);
+            return false;
+        }
+    }
+
+    function showResult(isValid, message, chain = "", techNote = "") {
         const resultDiv = document.getElementById('result');
         resultDiv.style.display = 'block';
         
         if (isValid) {
             resultDiv.className = 'result-valid';
-            resultDiv.innerHTML = `<strong>✅ 验证通过:</strong> ${message}`;
-            if (chain) {
-                resultDiv.innerHTML += `<span class="chain-tag">${chain}</span>`;
-            }
+            let html = `<strong>✅ 验证通过:</strong> ${message}`;
+            if (chain) html += `<span class="chain-tag">${chain}</span>`;
+            if (techNote) html += `<span class="tech-note">ℹ️ ${techNote}</span>`;
+            resultDiv.innerHTML = html;
         } else {
             resultDiv.className = 'result-invalid';
             resultDiv.innerHTML = `<strong>❌ 验证失败:</strong> ${message}`;
         }
     }
-
-    // 监听回车键
+    
+    // 绑定回车键
     document.getElementById("addressInput").addEventListener("keypress", function(event) {
-        if (event.key === "Enter") {
-            checkAddress();
-        }
+        if (event.key === "Enter") checkAddress();
     });
 </script>
 
