@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3 钱包地址验证器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --primary: #3b82f6;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        p.subtitle {
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            background-color: #0f172a;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+            font-family: monospace; /* 让地址看起来更清晰 */
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        /* 结果显示区域 */
+        #result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none; /* 默认隐藏 */
+            font-size: 0.95rem;
+            text-align: left;
+        }
+
+        .result-valid {
+            background-color: rgba(34, 197, 94, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .result-invalid {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .chain-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+            color: var(--text-main);
+        }
+
+        .features {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Web3 地址检测</h2>
+    <p class="subtitle">支持 EVM (ETH/BSC/Polygon), Solana, Bitcoin</p>
+
+    <div class="input-group">
+        <input type="text" id="addressInput" placeholder="输入钱包地址 (0x...)" autocomplete="off">
+    </div>
+
+    <button onclick="checkAddress()">验证地址</button>
+
+    <div id="result"></div>
+
+    <div class="features">
+        <span>🔒 校验和验证</span>
+        <span>⚡ 本地计算</span>
+        <span>🌐 多链支持</span>
+    </div>
+</div>
+
+<script>
+    function checkAddress() {
+        const input = document.getElementById('addressInput').value.trim();
+        const resultDiv = document.getElementById('result');
+        
+        // 重置 UI
+        resultDiv.style.display = 'none';
+        resultDiv.className = '';
+        
+        if (!input) {
+            showResult(false, "请输入地址");
+            return;
+        }
+
+        // 1. 检测 EVM 地址 (Ethereum, BSC, Polygon, Avalanche 等)
+        // 使用 ethers.js 的 isAddress 方法，它会同时检查格式和 Checksum (EIP-55)
+        if (ethers.isAddress(input)) {
+            showResult(true, "有效的 EVM 地址", "Ethereum / Layer2s");
+            return;
+        }
+
+        // 2. 检测 Solana 地址 (Base58 编码，长度通常在 32-44 字符之间)
+        // 正则表达式检查
+        const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+        if (solanaRegex.test(input)) {
+            showResult(true, "格式符合 Solana 地址", "Solana");
+            return;
+        }
+
+        // 3. 检测 Bitcoin 地址 (简单正则)
+        // 1开头: Legacy, 3开头: Nested SegWit, bc1开头: Native SegWit
+        const btcRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,59}$/;
+        if (btcRegex.test(input)) {
+            showResult(true, "格式符合 Bitcoin 地址", "Bitcoin");
+            return;
+        }
+
+        // 4. Tron 地址 (T 开头, 34位)
+        const tronRegex = /^T[a-zA-Z0-9]{33}$/;
+        if (tronRegex.test(input)) {
+            showResult(true, "格式符合 Tron 地址", "Tron (TRC20)");
+            return;
+        }
+
+        // 如果都不匹配
+        showResult(false, "无效的地址格式，请检查拼写或网络类型。");
+    }
+
+    function showResult(isValid, message, chain = "") {
+        const resultDiv = document.getElementById('result');
+        resultDiv.style.display = 'block';
+        
+        if (isValid) {
+            resultDiv.className = 'result-valid';
+            resultDiv.innerHTML = `<strong>✅ 验证通过:</strong> ${message}`;
+            if (chain) {
+                resultDiv.innerHTML += `<span class="chain-tag">${chain}</span>`;
+            }
+        } else {
+            resultDiv.className = 'result-invalid';
+            resultDiv.innerHTML = `<strong>❌ 验证失败:</strong> ${message}`;
+        }
+    }
+
+    // 监听回车键
+    document.getElementById("addressInput").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            checkAddress();
+        }
+    });
+</script>
+
+</body>
+</html>
