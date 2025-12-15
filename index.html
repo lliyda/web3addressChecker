@@ -175,21 +175,21 @@
 </div>
 
 <script>
-    // ================= 配置区域 (您的专属 Google Form ID) =================
+    // ================= 配置区域 =================
     const GOOGLE_CONFIG = {
-        // 表单提交地址 (已替换为 formResponse)
+        // 表单提交地址
         url: "https://docs.google.com/forms/d/e/1FAIpQLSd9tGfPqfi-oOrtZhGQZP7qfcN1P3TS4orJSgbWTjf750PDQQ/formResponse",
         
-        // 字段映射
+        // 字段映射 (请填入您获取的 ID)
         fields: {
             address: "entry.722471",      // Wallet Address
             chain:   "entry.2095444141",  // Chain Type
-            result:  "entry.754674652"    // Check Result
+            result:  "entry.754674652",   // Check Result
+            device:  "entry.66311598"       // 【新】Device Info ID (请替换这里的xxxxxx)
         }
     };
-    // ===================================================================
+    // ==========================================
 
-    // --- 工具函数：Base58 解码 (用于 Tron 强校验) ---
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     const ALPHABET_MAP = {};
     for(let i = 0; i < ALPHABET.length; i++) ALPHABET_MAP[ALPHABET.charAt(i)] = i;
@@ -217,7 +217,6 @@
         return new Uint8Array(bytes.reverse());
     }
 
-    // --- 核心校验逻辑 ---
     async function checkAddress() {
         const input = document.getElementById('addressInput').value.trim();
         const resultDiv = document.getElementById('result');
@@ -230,49 +229,46 @@
             return;
         }
 
-        // 1. EVM 地址 (Ethereum, BSC, Polygon 等)
+        // 1. EVM
         if (ethers.isAddress(input)) {
-            showResult(true, "有效的 EVM 地址", "ETH/BSC/L2", "验证通过");
+            showResult(true, "有效的 EVM 地址", "ETH/BSC/L2", "通过 Checksum 校验");
             return;
         }
 
-        // 2. Tron (TRC20) 地址 - 强校验模式
+        // 2. Tron
         if (input.startsWith('T')) {
             const tronValid = await verifyTronAddress(input);
             if (tronValid) {
-                showResult(true, "有效的 Tron 地址", "Tron (TRC20)", "验证通过");
+                showResult(true, "有效的 Tron 地址", "Tron (TRC20)", "通过 Checksum 双重哈希校验");
             } else {
-                showResult(false, "无效的 Tron 地址 (校验和错误)", "Tron", "校验和/格式错误");
+                showResult(false, "无效的 Tron 地址", "Tron", "Base58解码失败或哈希校验错误");
             }
             return;
         }
 
-        // 3. Solana 地址
+        // 3. Solana
         const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
         if (solanaRegex.test(input)) {
-            showResult(true, "格式符合 Solana 地址", "Solana", "验证通过");
+            showResult(true, "格式符合 Solana 地址", "Solana", "正则校验通过");
             return;
         }
 
-        // 4. Bitcoin 地址
+        // 4. Bitcoin
         const btcRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,59}$/;
         if (btcRegex.test(input)) {
-            showResult(true, "格式符合 Bitcoin 地址", "Bitcoin", "验证通过");
+            showResult(true, "格式符合 Bitcoin 地址", "Bitcoin", "正则校验通过");
             return;
         }
 
-        // 5. 无法识别
-        showResult(false, "无法识别的地址格式", "Unknown", "格式完全不匹配");
+        showResult(false, "无法识别的地址格式", "Unknown", "格式未知");
     }
 
-    // --- TRC20 专用校验函数 ---
     async function verifyTronAddress(address) {
         try {
             const decoded = base58Decode(address);
             if (!decoded || decoded.length !== 25) return false;
-            if (decoded[0] !== 0x41) return false; // 必须以 0x41 (T) 开头
+            if (decoded[0] !== 0x41) return false;
 
-            // 双重 SHA256 校验和计算
             const dataContent = decoded.slice(0, 21);
             const originalChecksum = decoded.slice(21);
             const firstHash = ethers.sha256(dataContent); 
@@ -283,75 +279,69 @@
                     calculatedChecksumBytes[1] === originalChecksum[1] &&
                     calculatedChecksumBytes[2] === originalChecksum[2] &&
                     calculatedChecksumBytes[3] === originalChecksum[3]);
-        } catch (e) {
-            return false;
-        }
+        } catch (e) { return false; }
     }
 
-    // --- 结果显示 + 日志上传 ---
-    function showResult(isValid, displayMessage, chain, logStatus) {
+    function showResult(isValid, displayMessage, chain, techDetails) {
         const resultDiv = document.getElementById('result');
         const inputVal = document.getElementById('addressInput').value.trim();
         
         resultDiv.style.display = 'block';
         
-        // 1. 更新 UI
         if (isValid) {
             resultDiv.className = 'result-valid';
             let html = `<strong>✅ 验证通过:</strong> ${displayMessage}`;
             if (chain && chain !== "Unknown") html += `<span class="chain-tag">${chain}</span>`;
+            if (techDetails) html += `<span class="tech-note">ℹ️ ${techDetails}</span>`;
             resultDiv.innerHTML = html;
         } else {
             resultDiv.className = 'result-invalid';
-            resultDiv.innerHTML = `<strong>❌ 验证失败:</strong> ${displayMessage}`;
+            let html = `<strong>❌ 验证失败:</strong> ${displayMessage}`;
+            if (techDetails) html += `<span class="tech-note">ℹ️ 原因: ${techDetails}</span>`;
+            resultDiv.innerHTML = html;
         }
 
-        // 2. 触发日志记录 (静默执行)
-        const finalStatus = isValid ? "✅ 有效" : `❌ 无效 (${logStatus})`;
+        const finalStatus = isValid ? "✅ 有效" : `❌ 无效 (${techDetails})`;
         logToGoogle(inputVal, chain, finalStatus);
     }
 
     function logToGoogle(address, chain, status) {
         if(!GOOGLE_CONFIG.url.includes("docs.google.com")) return; 
+        
+        // --- 【新增功能】获取设备信息 ---
+        // navigator.userAgent 包含了浏览器、操作系统、机型等信息
+        // navigator.language 获取语言 (如 zh-CN)
+        const deviceInfo = `${navigator.userAgent} | Lang: ${navigator.language}`;
 
         const formData = new FormData();
         formData.append(GOOGLE_CONFIG.fields.address, address);
         formData.append(GOOGLE_CONFIG.fields.chain, chain);
         formData.append(GOOGLE_CONFIG.fields.result, status);
+        // 添加设备信息
+        if(GOOGLE_CONFIG.fields.device) {
+            formData.append(GOOGLE_CONFIG.fields.device, deviceInfo);
+        }
 
-        // 使用 no-cors 模式，防止跨域报错
-        fetch(GOOGLE_CONFIG.url, {
-            method: "POST",
-            mode: "no-cors",
-            body: formData
-        }).catch(e => console.error("Log failed", e));
+        fetch(GOOGLE_CONFIG.url, { method: "POST", mode: "no-cors", body: formData }).catch(e => console.error(e));
     }
 
-    // --- 修改点 5: 叉叉按钮的交互逻辑 ---
     const addressInput = document.getElementById('addressInput');
     const clearBtn = document.getElementById('clearBtn');
     const resultDiv = document.getElementById('result');
 
-    // 监听输入框内容变化
     addressInput.addEventListener('input', function() {
-        // 如果有内容就显示叉叉，否则隐藏
         clearBtn.style.display = this.value.length > 0 ? 'block' : 'none';
     });
 
-    // 监听叉叉点击事件
     clearBtn.addEventListener('click', function() {
-        addressInput.value = '';      // 清空输入框
-        clearBtn.style.display = 'none'; // 隐藏叉叉
-        resultDiv.style.display = 'none'; // 隐藏之前的验证结果
-        addressInput.focus();         // 让输入框重新获得焦点
+        addressInput.value = '';
+        clearBtn.style.display = 'none';
+        resultDiv.style.display = 'none';
+        addressInput.focus();
     });
 
-    // 页面加载时检查一下（应对浏览器自动填充的情况）
-    if (addressInput.value.length > 0) {
-        clearBtn.style.display = 'block';
-    }
+    if (addressInput.value.length > 0) clearBtn.style.display = 'block';
 
-    // 绑定回车键
     addressInput.addEventListener("keypress", function(event) {
         if (event.key === "Enter") checkAddress();
     });
