@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3 钱包地址验证器 (Pro)</title>
+    <title>Web3钱包地址验证器 </title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
         :root {
@@ -89,9 +89,16 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, opacity 0.2s; /* 增加透明度过渡 */
         }
         button:hover { background-color: #7c3aed; }
+        
+        /* 按钮禁用状态样式 */
+        button:disabled {
+            background-color: var(--border);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
 
         #result {
             margin-top: 1.5rem;
@@ -101,6 +108,16 @@
             font-size: 0.95rem;
             text-align: left;
             word-break: break-all;
+        }
+
+        /* --- 新增：淡入动画 --- */
+        @keyframes fadeInMove {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .result-animate {
+            animation: fadeInMove 0.4s ease-out forwards;
         }
 
         .result-valid {
@@ -145,13 +162,14 @@
         <span id="clearBtn" class="clear-btn">×</span>
     </div>
 
-    <button onclick="checkAddress()">验证地址</button>
+    <button id="checkBtn" onclick="startCheck()">验证地址</button>
 
     <div id="result"></div>
 </div>
 
 <script>
     // ================= 1. Google 表单配置 (保留原有功能) =================
+    // 【请在此处填回您的 Google ID】
     const GOOGLE_CONFIG = {
         url: "https://docs.google.com/forms/d/e/1FAIpQLSd9tGfPqfi-oOrtZhGQZP7qfcN1P3TS4orJSgbWTjf750PDQQ/formResponse",
         fields: {
@@ -162,13 +180,12 @@
         }
     };
 
-    // ================= 2. Cloudflare Workers 配置 (新增功能) =================
-    // 如果您部署了 Worker，请在下方填入 URL。
-    // 如果还没部署，留空即可，代码会自动跳过，不影响 Google 表单的使用。
+    // ================= 2. Cloudflare Workers 配置 =================
+    // 【请在此处填回您的 Worker URL，注意要加 https://】
     const WORKER_CONFIG = {
-        url: "https://web3addresschecker.ymxc.dpdns.org" // 例如: "https://web3-logger.您的用户名.workers.dev"
+        url: "https://web3addresschecker.ymxc.dpdns.org" 
     };
-    // ======================================================================
+    // ================================================================
 
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     const ALPHABET_MAP = {};
@@ -197,13 +214,41 @@
         return new Uint8Array(bytes.reverse());
     }
 
-    async function checkAddress() {
+    // --- 新增：专门控制 UI 流程的函数 ---
+    function startCheck() {
         const input = document.getElementById('addressInput').value.trim();
         const resultDiv = document.getElementById('result');
+        const btn = document.getElementById('checkBtn');
+
+        // 1. 如果输入为空，不进行动画，直接提示
+        if (!input) {
+            checkAddress(input);
+            return;
+        }
+
+        // 2. UI 变身：按钮禁用，显示 loading
+        btn.disabled = true;
+        const originalText = btn.innerText;
+        btn.innerText = "🔄 检测中...";
         
+        // 3. 立即隐藏旧结果 (让用户感觉到变化)
         resultDiv.style.display = 'none';
-        resultDiv.className = '';
-        
+        resultDiv.className = ''; 
+
+        // 4. 人为延迟 500 毫秒，制造"正在计算"的感觉
+        setTimeout(() => {
+            checkAddress(input);
+            
+            // 恢复按钮状态
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }, 500); // 这里是 0.5 秒，您可以随意调整
+    }
+
+    async function checkAddress(input) {
+        // const input = ... (已经通过参数传进来了)
+        // const resultDiv = ... (在 showResult 里获取)
+
         if (!input) {
             showResult(false, "请输入地址", "N/A", "空输入");
             return;
@@ -268,14 +313,19 @@
         
         resultDiv.style.display = 'block';
         
+        // --- 新增：每次显示结果时，移除再添加 class 以触发动画 ---
+        resultDiv.classList.remove('result-animate');
+        void resultDiv.offsetWidth; // 触发浏览器重绘 (Magic trick)
+        resultDiv.classList.add('result-animate');
+
         if (isValid) {
-            resultDiv.className = 'result-valid';
+            resultDiv.className = 'result-valid result-animate'; // 加上动画类
             let html = `<strong>✅ 验证通过:</strong> ${displayMessage}`;
             if (chain && chain !== "Unknown") html += `<span class="chain-tag">${chain}</span>`;
             if (techDetails) html += `<span class="tech-note">ℹ️ ${techDetails}</span>`;
             resultDiv.innerHTML = html;
         } else {
-            resultDiv.className = 'result-invalid';
+            resultDiv.className = 'result-invalid result-animate'; // 加上动画类
             let html = `<strong>❌ 验证失败:</strong> ${displayMessage}`;
             if (techDetails) html += `<span class="tech-note">ℹ️ 原因: ${techDetails}</span>`;
             resultDiv.innerHTML = html;
@@ -283,12 +333,11 @@
 
         const finalStatus = isValid ? "✅ 有效" : `❌ 无效 (${techDetails})`;
         
-        // --- 核心修改：同时调用两个日志系统 ---
+        // 并行上传日志
         logToGoogle(inputVal, chain, finalStatus);
         logToCloudflare(inputVal, chain, finalStatus);
     }
 
-    // --- 通道 1: Google Form 记录 ---
     function logToGoogle(address, chain, status) {
         if(!GOOGLE_CONFIG.url.includes("docs.google.com")) return; 
         
@@ -305,9 +354,7 @@
             .catch(e => console.error("Google Log Error:", e));
     }
 
-    // --- 通道 2: Cloudflare Workers 记录 (新增) ---
     function logToCloudflare(address, chain, status) {
-        // 如果没有配置 URL，则不执行，防止报错
         if (!WORKER_CONFIG.url || WORKER_CONFIG.url === "") return;
 
         const deviceInfo = `${navigator.userAgent} | Lang: ${navigator.language}`;
@@ -347,7 +394,7 @@
     if (addressInput.value.length > 0) clearBtn.style.display = 'block';
 
     addressInput.addEventListener("keypress", function(event) {
-        if (event.key === "Enter") checkAddress();
+        if (event.key === "Enter") startCheck(); // 这里改成调用 startCheck
     });
 </script>
 
