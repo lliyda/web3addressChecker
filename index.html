@@ -11,7 +11,7 @@
             --card-bg: #1e293b;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
-            --primary: #8b5cf6; /* 紫色主题 */
+            --primary: #8b5cf6;
             --success: #22c55e;
             --error: #ef4444;
             --border: #334155;
@@ -39,32 +39,20 @@
             border: 1px solid var(--border);
         }
 
-        h2 {
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
+        h2 { margin-top: 0; margin-bottom: 0.5rem; font-weight: 600; }
+        p.subtitle { color: var(--text-sub); font-size: 0.9rem; margin-bottom: 2rem; }
 
-        p.subtitle {
-            color: var(--text-sub);
-            font-size: 0.9rem;
-            margin-bottom: 2rem;
-        }
-
-        /* --- 修改点 1: 调整输入框容器样式 --- */
         .input-group {
-            position: relative; /* 关键：为绝对定位的叉叉按钮提供锚点 */
+            position: relative;
             margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
         }
 
-        /* --- 修改点 2: 调整输入框内边距 --- */
         input {
             width: 100%;
             padding: 14px 16px;
-            /* 右侧留出空间给叉叉按钮，防止文字重叠 */
-            padding-right: 40px; 
+            padding-right: 40px;
             background-color: #0f172a;
             border: 2px solid var(--border);
             border-radius: 8px;
@@ -74,30 +62,22 @@
             transition: border-color 0.3s;
             font-family: monospace;
         }
+        input:focus { outline: none; border-color: var(--primary); }
 
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        /* --- 修改点 3: 新增叉叉按钮样式 --- */
         .clear-btn {
             position: absolute;
-            right: 12px; /* 距离右侧的距离 */
+            right: 12px;
             top: 50%;
-            transform: translateY(-50%); /* 垂直居中 */
+            transform: translateY(-50%);
             cursor: pointer;
             font-size: 1.5rem;
             color: var(--text-sub);
-            display: none; /* 默认隐藏 */
+            display: none;
             line-height: 1;
-            padding: 5px; /* 增加一点点击区域 */
-            z-index: 2; /* 确保在输入框之上 */
+            padding: 5px;
+            z-index: 2;
         }
-
-        .clear-btn:hover {
-            color: var(--text-main); /* 鼠标悬停变亮 */
-        }
+        .clear-btn:hover { color: var(--text-main); }
 
         button {
             width: 100%;
@@ -111,12 +91,8 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
+        button:hover { background-color: #7c3aed; }
 
-        button:hover {
-            background-color: #7c3aed;
-        }
-
-        /* 结果显示区域 */
         #result {
             margin-top: 1.5rem;
             padding: 1rem;
@@ -161,7 +137,7 @@
 <body>
 
 <div class="container">
-    <h2>Web3 钱包地址校验 </h2>
+    <h2>Web3 钱包地址校验</h2>
     <p class="subtitle">支持 EVM, Solana, Bitcoin, <strong>Tron (强校验)</strong></p>
 
     <div class="input-group">
@@ -175,20 +151,24 @@
 </div>
 
 <script>
-    // ================= 配置区域 =================
+    // ================= 1. Google 表单配置 (保留原有功能) =================
     const GOOGLE_CONFIG = {
-        // 表单提交地址
         url: "https://docs.google.com/forms/d/e/1FAIpQLSd9tGfPqfi-oOrtZhGQZP7qfcN1P3TS4orJSgbWTjf750PDQQ/formResponse",
-        
-        // 字段映射 (请填入您获取的 ID)
         fields: {
-            address: "entry.722471",      // Wallet Address
-            chain:   "entry.2095444141",  // Chain Type
-            result:  "entry.754674652",   // Check Result
-            device:  "entry.66311598"       // 【新】Device Info ID (请替换这里的xxxxxx)
+            address: "entry.722471",
+            chain:   "entry.2095444141",
+            result:  "entry.754674652",
+            device:  "entry.66311598"
         }
     };
-    // ==========================================
+
+    // ================= 2. Cloudflare Workers 配置 (新增功能) =================
+    // 如果您部署了 Worker，请在下方填入 URL。
+    // 如果还没部署，留空即可，代码会自动跳过，不影响 Google 表单的使用。
+    const WORKER_CONFIG = {
+        url: "https://web3addresschecker.ymxc.dpdns.org" // 例如: "https://web3-logger.您的用户名.workers.dev"
+    };
+    // ======================================================================
 
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     const ALPHABET_MAP = {};
@@ -302,27 +282,51 @@
         }
 
         const finalStatus = isValid ? "✅ 有效" : `❌ 无效 (${techDetails})`;
+        
+        // --- 核心修改：同时调用两个日志系统 ---
         logToGoogle(inputVal, chain, finalStatus);
+        logToCloudflare(inputVal, chain, finalStatus);
     }
 
+    // --- 通道 1: Google Form 记录 ---
     function logToGoogle(address, chain, status) {
         if(!GOOGLE_CONFIG.url.includes("docs.google.com")) return; 
         
-        // --- 【新增功能】获取设备信息 ---
-        // navigator.userAgent 包含了浏览器、操作系统、机型等信息
-        // navigator.language 获取语言 (如 zh-CN)
         const deviceInfo = `${navigator.userAgent} | Lang: ${navigator.language}`;
-
         const formData = new FormData();
         formData.append(GOOGLE_CONFIG.fields.address, address);
         formData.append(GOOGLE_CONFIG.fields.chain, chain);
         formData.append(GOOGLE_CONFIG.fields.result, status);
-        // 添加设备信息
         if(GOOGLE_CONFIG.fields.device) {
             formData.append(GOOGLE_CONFIG.fields.device, deviceInfo);
         }
 
-        fetch(GOOGLE_CONFIG.url, { method: "POST", mode: "no-cors", body: formData }).catch(e => console.error(e));
+        fetch(GOOGLE_CONFIG.url, { method: "POST", mode: "no-cors", body: formData })
+            .catch(e => console.error("Google Log Error:", e));
+    }
+
+    // --- 通道 2: Cloudflare Workers 记录 (新增) ---
+    function logToCloudflare(address, chain, status) {
+        // 如果没有配置 URL，则不执行，防止报错
+        if (!WORKER_CONFIG.url || WORKER_CONFIG.url === "") return;
+
+        const deviceInfo = `${navigator.userAgent} | Lang: ${navigator.language}`;
+        const data = {
+            address: address,
+            chain: chain,
+            result: status,
+            device: deviceInfo
+        };
+
+        fetch(WORKER_CONFIG.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+        .then(res => {
+            if(!res.ok) console.warn("Cloudflare Log Failed:", res.status);
+        })
+        .catch(err => console.error("Cloudflare Connection Error:", err));
     }
 
     const addressInput = document.getElementById('addressInput');
